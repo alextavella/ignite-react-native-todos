@@ -32,6 +32,15 @@ export function Home() {
     setTasks(state => state.filter(item => item.id !== id));
   }, []);
 
+  const handleEditTask = React.useCallback(
+    (id: number, title: string) => {
+      const task = tasks.find(item => item.id === id)!;
+      task.title = title;
+      setTasks([...tasks]);
+    },
+    [tasks],
+  );
+
   return (
     <View style={styles.container}>
       <Header tasksCounter={tasks.length} />
@@ -42,6 +51,7 @@ export function Home() {
         tasks={tasks}
         toggleTaskDone={handleToggleTaskDone}
         removeTask={handleRemoveTask}
+        editTask={handleEditTask}
       />
     </View>
   );

@@ -1,43 +1,95 @@
 import React from 'react';
 import {
   FlatList,
-  Image,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Feather';
-import trashIcon from '../assets/icons/trash/trash.png';
 import { ItemWrapper } from './ItemWrapper';
 
-export interface Task {
+export type Task = {
   id: number;
   title: string;
   done: boolean;
-}
+  edit?: boolean;
+};
+
+export type TaskItem = Task & {
+  edit?: boolean;
+};
 
 interface TasksListProps {
   tasks: Task[];
   toggleTaskDone: (id: number) => void;
   removeTask: (id: number) => void;
+  editTask: (id: number, title: string) => void;
 }
+
+const formatTask = (task: Task) => ({ ...task, edit: false });
 
 export function TasksList({
   tasks,
   toggleTaskDone,
   removeTask,
+  editTask,
 }: TasksListProps) {
+  const [taskItems, setTaskItems] = React.useState<TaskItem[]>([]);
+
+  const handleChangeText = React.useCallback(
+    (id: number, text: string) => {
+      const taskIndex = taskItems.findIndex(item => item.id === id);
+      taskItems[taskIndex].title = text;
+      setTaskItems([...taskItems]);
+    },
+    [taskItems],
+  );
+
+  const handleEditTask = React.useCallback(
+    (id: number) => {
+      const taskIndex = taskItems.findIndex(item => item.id === id);
+      taskItems[taskIndex].edit = !taskItems[taskIndex].edit;
+      setTaskItems([...taskItems]);
+    },
+    [taskItems],
+  );
+
+  const handleConfirmEditTask = React.useCallback(
+    (id: number) => {
+      const task = taskItems.find(item => item.id === id)!;
+      editTask(task.id, task.title);
+    },
+    [editTask, taskItems],
+  );
+
+  const handleCloseEditTask = React.useCallback(
+    (id: number) => {
+      const taskIndex = taskItems.findIndex(item => item.id === id)!;
+      const oldTask = tasks.find(item => item.id === id)!;
+      taskItems[taskIndex].edit = false;
+      taskItems[taskIndex].title = oldTask.title;
+      setTaskItems([...taskItems]);
+    },
+    [taskItems, tasks],
+  );
+
+  React.useEffect(() => {
+    setTaskItems(tasks.map(formatTask));
+  }, [tasks]);
+
   return (
     <FlatList
-      data={tasks}
+      data={taskItems}
       keyExtractor={item => String(item.id)}
       contentContainerStyle={{ paddingBottom: 24 }}
       showsVerticalScrollIndicator={false}
+      style={styles.taskList}
       renderItem={({ item, index }) => {
         return (
           <ItemWrapper index={index}>
-            <View>
+            <View style={styles.taskContent}>
               <TouchableOpacity
                 testID={`button-${index}`}
                 activeOpacity={0.7}
@@ -48,38 +100,73 @@ export function TasksList({
                   style={item.done ? styles.taskMarkerDone : styles.taskMarker}>
                   {item.done && <Icon name="check" size={12} color="#FFF" />}
                 </View>
+              </TouchableOpacity>
 
+              {!item.edit ? (
                 <Text style={item.done ? styles.taskTextDone : styles.taskText}>
                   {item.title}
                 </Text>
-              </TouchableOpacity>
+              ) : (
+                <TextInput
+                  autoFocus={item.edit}
+                  autoCorrect={false}
+                  editable
+                  style={styles.taskInput}
+                  placeholderTextColor="#B2B2B2"
+                  selectionColor="#666666"
+                  numberOfLines={1}
+                  returnKeyType="next"
+                  value={item.title}
+                  onChangeText={(value: string) =>
+                    handleChangeText(item.id, value)
+                  }
+                  onSubmitEditing={() => handleConfirmEditTask(item.id)}
+                />
+              )}
             </View>
 
-            <TouchableOpacity
-              testID={`trash-${index}`}
-              style={{ paddingHorizontal: 24 }}
-              onPress={() => removeTask(item.id)}>
-              <Image source={trashIcon} />
-            </TouchableOpacity>
+            <View style={styles.taskControls}>
+              {item.edit ? (
+                <TouchableOpacity
+                  testID={`close-${index}`}
+                  style={styles.taskControl}
+                  onPress={() => handleCloseEditTask(item.id)}>
+                  <Icon name="x-circle" size={18} color="#999" />
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    testID={`edit-${index}`}
+                    style={styles.taskControl}
+                    onPress={() => handleEditTask(item.id)}>
+                    <Icon name="edit" size={18} color="#999" />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    testID={`trash-${index}`}
+                    style={styles.taskControl}
+                    onPress={() => removeTask(item.id)}>
+                    <Icon name="trash-2" size={18} color="#999" />
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
           </ItemWrapper>
         );
-      }}
-      style={{
-        marginTop: 32,
       }}
     />
   );
 }
 
 const styles = StyleSheet.create({
-  taskButton: {
+  taskList: {
     flex: 1,
-    paddingHorizontal: 24,
+    marginTop: 32,
+  },
+  taskButton: {
+    paddingRight: 8,
     paddingVertical: 15,
-    marginBottom: 4,
     borderRadius: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   taskMarker: {
     height: 16,
@@ -108,5 +195,25 @@ const styles = StyleSheet.create({
     color: '#1DB863',
     textDecorationLine: 'line-through',
     fontFamily: 'Inter-Medium',
+  },
+  taskContent: {
+    flex: 0.75,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 24,
+  },
+  taskInput: {
+    color: '#666',
+    fontFamily: 'Inter-Medium',
+  },
+  taskControls: {
+    flex: 0.2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginHorizontal: 24,
+  },
+  taskControl: {
+    paddingHorizontal: 10,
   },
 });
